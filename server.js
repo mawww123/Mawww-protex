@@ -1,8 +1,14 @@
 'use strict';
 
-require('dotenv').config?.();
+// Muat .env kalau tersedia (Railway inject env via dashboard, jadi opsional)
+try {
+  require('dotenv').config();
+} catch (_) {
+  // dotenv tidak terpasang — abaikan, env dibaca dari process.env
+}
 
 const path = require('path');
+const fs = require('fs');
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 
@@ -10,10 +16,10 @@ const db = require('./src/db');
 const auth = require('./src/auth');
 const { obfuscateLua } = require('./src/obfuscator');
 
-// Validasi JWT_SECRET — wajib ada, biar gagal cepat kalau lupa set
+// Validasi JWT_SECRET — wajib ada
 if (!process.env.JWT_SECRET) {
   console.error('[FATAL] JWT_SECRET belum diset di environment variables.');
-  console.error('        Generate: openssl rand -hex 32');
+  console.error('        Generate dengan: openssl rand -hex 32');
   process.exit(1);
 }
 
@@ -24,11 +30,22 @@ app.set('trust proxy', 1); // Railway pakai reverse proxy
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
-// Static file dari folder public/
-app.use(express.static(path.join(__dirname, 'public'), {
+// --- Static files ---
+const PUBLIC_DIR = path.join(__dirname, 'public');
+const LEGACY_JS_DIR = path.join(__dirname, 'js');
+
+app.use(express.static(PUBLIC_DIR, {
   maxAge: process.env.NODE_ENV === 'production' ? '1h' : 0,
   etag: true
 }));
+
+// Fallback: kalau folder js/ masih ada di root, tetap bisa diakses via /js/*
+if (fs.existsSync(LEGACY_JS_DIR)) {
+  app.use('/js', express.static(LEGACY_JS_DIR, {
+    maxAge: process.env.NODE_ENV === 'production' ? '1h' : 0,
+    etag: true
+  }));
+}
 
 // --- Rate limiters ---
 const authLimiter = rateLimit({
@@ -59,8 +76,10 @@ const rawLimiter = rateLimit({
 // ROUTES — Halaman HTML
 // =========================================================
 
+// Redirect ke /dashboard kalau sudah login (berdasarkan Bearer token)
 const redirectIfAuthed = (req, res, next) => {
-  const token = req.cookies?.token || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   if (token) {
     const user = auth.verifyToken(token);
     if (user) return res.redirect('/dashboard');
@@ -68,30 +87,19 @@ const redirectIfAuthed = (req, res, next) => {
   next();
 };
 
-app.get('/', redirectIfAuthed, (req, res) =>
-  res.sendFile(path.join(__dirname, 'public', 'login.html'))
-);
+const sendHtml = (file) => (req, res) => res.sendFile(path.join(PUBLIC_DIR, file));
 
-app.get('/login', redirectIfAuthed, (req, res) =>
-  res.sendFile(path.join(__dirname, 'public', 'login.html'))
-);
+app.get('/', redirectIfAuthed, sendHtml('login.html'));
+app.get('/login', redirectIfAuthed, sendHtml('login.html'));
+app.get('/register', redirectIfAuthed, sendHtml('register.html'));
+app.get('/dashboard', sendHtml('dashboard.html'));
+app.get('/profile', sendHtml('profile.html'));
 
-app.get('/register', redirectIfAuthed, (req, res) =>
-  res.sendFile(path.join(__dirname, 'public', 'register.html'))
-);
-
-app.get('/dashboard', (req, res) =>
-  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'))
-);
-
-app.get('/profile', (req, res) =>
-  res.sendFile(path.join(__dirname, 'public', 'profile.html'))
-);
-
-// Redirect .html ke clean URL (optional)
+// Redirect .html ke clean URL
 app.get('/login.html', (req, res) => res.redirect('/login'));
 app.get('/register.html', (req, res) => res.redirect('/register'));
 app.get('/profile.html', (req, res) => res.redirect('/profile'));
+app.get('/dashboard.html', (req, res) => res.redirect('/dashboard'));
 
 // =========================================================
 // API — Auth
@@ -282,12 +290,18 @@ app.delete('/api/scripts/:id', auth.requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
-// Endpoint raw — diakses oleh executor Roblox, wajib API key
+// Endpoint raw — diakses executor Roblox, wajib API key
 app.get('/api/raw/:id', rawLimiter, auth.requireApiKey, (req, res) => {
   const script = db.getScriptById(req.params.id);
   if (!script) return res.status(404).type('text/plain').send('-- script not found');
 
-  db.logExecution(script.id, req.user.id, req.ip, req.headers['x-hwid'] || null, req.headers['user-agent'] || null);
+  db.logExecution(
+    script.id,
+    req.user.id,
+    req.ip,
+    req.headers['x-hwid'] || null,
+    req.headers['user-agent'] || null
+  );
 
   res.type('text/plain').send(script.obfuscated_code);
 });
@@ -310,7 +324,7 @@ app.use('/api', (req, res) => {
 });
 
 app.use((req, res) => {
-  res.status(404).sendFile(path.join(__dirname, 'public', 'login.html'));
+  res.status(404).sendFile(path.join(PUBLIC_DIR, 'login.html'));
 });
 
 app.use((err, req, res, next) => {
@@ -329,5 +343,6 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log('  Port   : ' + PORT);
   console.log('  Env    : ' + (process.env.NODE_ENV || 'development'));
   console.log('  DB     : ' + (process.env.DATABASE_PATH || './mawww.db'));
+  console.log('  Static : ' + PUBLIC_DIR);
   console.log('==============================================');
 });
