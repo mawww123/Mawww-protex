@@ -1,84 +1,98 @@
-// auth.js
-const jwt = require('jsonwebtoken');
+'use strict';
+
 const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+
 const db = require('./db');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'mawww-protex-dev-secret-change-me';
-const COOKIE_NAME = 'mawww_protex_token';
+const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_EXPIRES = '7d';
+const SALT_ROUNDS = 10;
 
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET wajib diset di environment');
+}
+
+// --- Password ---
+function hashPassword(plain) {
+  return bcrypt.hash(plain, SALT_ROUNDS);
+}
+
+function verifyPassword(plain, hash) {
+  return bcrypt.compare(plain, hash);
+}
+
+// --- API Key ---
+function generateApiKey() {
+  return 'mwp_' + crypto.randomBytes(24).toString('hex');
+}
+
+// --- JWT ---
 function signToken(user) {
-    return jwt.sign(
-        { uid: user.id, username: user.username, admin: !!user.is_admin },
-        JWT_SECRET,
-        { expiresIn: '7d' }
-    );
+  return jwt.sign(
+    { id: user.id, username: user.username },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRES }
+  );
 }
 
-function setAuthCookie(res, token) {
-    res.cookie(COOKIE_NAME, token, {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 7 * 24 * 60 * 60 * 1000
-    });
+function verifyToken(token) {
+  try {
+    return jwt.verify(token, JWT_SECRET);
+  } catch {
+    return null;
+  }
 }
 
-function clearAuthCookie(res) {
-    res.clearCookie(COOKIE_NAME);
+// --- Create user ---
+async function createUser(username, email, password) {
+  const passwordHash = await hashPassword(password);
+  const apiKey = generateApiKey();
+  return db.createUser({ username, email, passwordHash, apiKey });
 }
 
-function getUserFromToken(req) {
-    const token = req.cookies[COOKIE_NAME];
-    if (!token) return null;
-    try {
-        const payload = jwt.verify(token, JWT_SECRET);
-        return db.prepare('SELECT id, username, email, is_admin FROM users WHERE id = ?').get(payload.uid);
-    } catch (_) {
-        return null;
-    }
-}
-
-/** Support login via API key juga (header X-API-Key). */
-function getUserFromRequest(req) {
-    const user = getUserFromToken(req);
-    if (user) return user;
-    const apiKey = req.header('X-API-Key') || req.query.api_key;
-    if (!apiKey) return null;
-    return db.prepare('SELECT id, username, email, is_admin FROM users WHERE api_key = ?').get(apiKey) || null;
-}
-
+// --- Middleware: Bearer token dari header Authorization ---
 function requireAuth(req, res, next) {
-    const user = getUserFromRequest(req);
-    if (!user) return res.status(401).json({ error: 'Belum login.' });
-    req.user = user;
-    next();
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+
+  if (!token) {
+    return res.status(401).json({ error: 'Token tidak ditemukan' });
+  }
+
+  const payload = verifyToken(token);
+  if (!payload) {
+    return res.status(401).json({ error: 'Token tidak valid atau kedaluwarsa' });
+  }
+
+  req.user = { id: payload.id, username: payload.username };
+  next();
 }
 
-function requireAuthPage(req, res, next) {
-    const user = getUserFromToken(req);
-    if (!user) return res.redirect('/login');
-    req.user = user;
-    next();
-}
+// --- Middleware: API key dari header X-API-Key (HANYA header, bukan query) ---
+function requireApiKey(req, res, next) {
+  const key = req.headers['x-api-key'];
+  if (!key) {
+    return res.status(401).json({ error: 'API key tidak ditemukan' });
+  }
 
-function redirectIfAuthed(req, res, next) {
-    const user = getUserFromToken(req);
-    if (user) return res.redirect('/dashboard');
-    next();
-}
+  const user = db.getUserByApiKey(key);
+  if (!user) {
+    return res.status(401).json({ error: 'API key tidak valid' });
+  }
 
-const generateApiKey = () => 'mawww_' + crypto.randomBytes(24).toString('hex');
-const generateAccessKey = () => crypto.randomBytes(8).toString('hex').toUpperCase();
+  req.user = { id: user.id, username: user.username };
+  next();
+}
 
 module.exports = {
-    signToken,
-    setAuthCookie,
-    clearAuthCookie,
-    getUserFromToken,
-    getUserFromRequest,
-    requireAuth,
-    requireAuthPage,
-    redirectIfAuthed,
-    generateApiKey,
-    generateAccessKey
+  hashPassword,
+  verifyPassword,
+  generateApiKey,
+  signToken,
+  verifyToken,
+  createUser,
+  requireAuth,
+  requireApiKey
 };
