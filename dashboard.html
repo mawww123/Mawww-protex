@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — Mawww Protex</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">Mawww Protex</div>
+    <nav>
+      <a href="/dashboard" class="active">Dashboard</a>
+      <a href="/profile">Profil</a>
+      <span class="user" data-username></span>
+      <button class="btn btn-sm" data-logout>Logout</button>
+    </nav>
+  </header>
+
+  <main class="container">
+    <section class="stats">
+      <div class="stat">
+        <div class="label">Total Script</div>
+        <div class="value" id="stat-scripts">0</div>
+      </div>
+      <div class="stat">
+        <div class="label">Total Eksekusi</div>
+        <div class="value" id="stat-executions">0</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Buat Script Baru</h2>
+      <form id="create-script-form" novalidate>
+        <div class="field">
+          <label for="name">Nama Script</label>
+          <input id="name" name="name" type="text" required />
+        </div>
+        <div class="field">
+          <label for="code">Kode Lua</label>
+          <textarea id="code" name="code" rows="8" placeholder="print('hello world')" required></textarea>
+        </div>
+        <button id="create-script-submit" class="btn btn-primary" type="submit">Upload &amp; Obfuscate</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h2 style="margin:0;">Script Saya</h2>
+        <button id="refresh-scripts" class="btn btn-sm">Refresh</button>
+      </div>
+
+      <p id="scripts-loading" class="muted">Memuat...</p>
+      <p id="scripts-empty" class="muted" hidden>Belum ada script. Buat yang pertama di atas.</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Nama</th>
+            <th>ID</th>
+            <th>Dibuat</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="scripts-list"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script src="/js/toast.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/guard.js"></script>
+  <script src="/js/dashboard.js"></script>
+</body>
+</html>
