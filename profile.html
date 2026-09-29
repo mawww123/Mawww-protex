@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Profil — Mawww Protex</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">Mawww Protex</div>
+    <nav>
+      <a href="/dashboard">Dashboard</a>
+      <a href="/profile" class="active">Profil</a>
+      <span class="user" data-username></span>
+      <button class="btn btn-sm" data-logout>Logout</button>
+    </nav>
+  </header>
+
+  <main class="container">
+    <div class="grid-2">
+      <section class="card">
+        <h2>Informasi Akun</h2>
+        <div class="kv"><span class="k">Username</span><span class="v" id="info-username">-</span></div>
+        <div class="kv"><span class="k">Email</span><span class="v" id="info-email">-</span></div>
+      </section>
+
+      <section class="card">
+        <h2>API Key</h2>
+        <div class="kv">
+          <span class="k">Key</span>
+          <span class="v" id="info-api-key">-</span>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px;">
+          <button id="copy-key" class="btn btn-sm">Copy</button>
+          <button id="regenerate-key" class="btn btn-sm btn-danger">Regenerasi</button>
+        </div>
+      </section>
+    </div>
+
+    <section class="card">
+      <h2>Ganti Password</h2>
+      <form id="change-password-form" novalidate>
+        <div class="field">
+          <label for="currentPassword">Password Saat Ini</label>
+          <input id="currentPassword" name="currentPassword" type="password" autocomplete="current-password" required />
+        </div>
+        <div class="field">
+          <label for="newPassword">Password Baru</label>
+          <input id="newPassword" name="newPassword" type="password" autocomplete="new-password" required />
+        </div>
+        <div class="field">
+          <label for="confirmPassword">Konfirmasi Password Baru</label>
+          <input id="confirmPassword" name="confirmPassword" type="password" autocomplete="new-password" required />
+        </div>
+        <button id="change-password-submit" class="btn btn-primary" type="submit">Simpan Password</button>
+      </form>
+    </section>
+  </main>
+
+  <script src="/js/toast.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/guard.js"></script>
+  <script src="/js/profile.js"></script>
+</body>
+</html>

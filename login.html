@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Masuk — Mawww Protex</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body class="auth-page">
+  <main class="auth-card">
+    <header class="auth-header">
+      <h1>Mawww Protex</h1>
+      <p>Masuk untuk mengelola script Anda</p>
+    </header>
+
+    <form id="login-form" novalidate>
+      <div class="field">
+        <label for="identifier">Username atau Email</label>
+        <input id="identifier" name="identifier" type="text" autocomplete="username" required />
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required />
+      </div>
+      <button id="login-submit" class="btn btn-primary btn-block" type="submit">Masuk</button>
+    </form>
+
+    <p class="auth-footer">Belum punya akun? <a href="/register">Daftar di sini</a></p>
+  </main>
+
+  <script src="/js/toast.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/login.js"></script>
+</body>
+</html>
