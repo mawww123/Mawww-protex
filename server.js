@@ -295,6 +295,7 @@ app.get('/api/raw/:id', rawLimiter, auth.requireApiKey, (req, res) => {
   const script = db.getScriptById(req.params.id);
   if (!script) return res.status(404).type('text/plain').send('-- script not found');
 
+  try {
   db.logExecution(
     script.id,
     req.user.id,
@@ -302,8 +303,10 @@ app.get('/api/raw/:id', rawLimiter, auth.requireApiKey, (req, res) => {
     req.headers['x-hwid'] || null,
     req.headers['user-agent'] || null
   );
-
-  res.type('text/plain').send(script.obfuscated_code);
+} catch (logErr) {
+  console.error('[logExecution failed]', logErr.message);
+}
+res.type('text/plain').send(script.obfuscated_code);
 });
 
 // =========================================================
